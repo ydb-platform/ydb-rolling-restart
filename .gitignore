@@ -25,3 +25,6 @@ bin/
 go.work
 
 vendor/
+
+# JetBrains ide
+.idea/

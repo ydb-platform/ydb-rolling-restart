@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/pflag"
+	"go.uber.org/zap"
 )
 
 const (
@@ -25,9 +26,13 @@ type (
 	CMSAuthNone struct{}
 	CMSAuthEnv  struct {
 		Name string
+
+		t AuthToken
 	}
 	CMSAuthFile struct {
 		Filename string
+
+		t AuthToken
 	}
 	CMSAuthIAM struct {
 		KeyFilename string
@@ -57,8 +62,19 @@ func (ae CMSAuthEnv) Validate() error {
 	return nil
 }
 func (ae CMSAuthEnv) Token() (AuthToken, error) {
-	//TODO implement me
-	panic("implement me")
+	if ae.t.Secret != "" {
+		return ae.t, nil
+	}
+
+	zap.S().Debugf("Read auth token from %s variable", ae.Name)
+	val, ok := os.LookupEnv(ae.Name)
+	if !ok {
+		return AuthToken{}, fmt.Errorf("failed to lookup variable: %s", ae.Name)
+	}
+	return AuthToken{
+		Type:   "OAuth",
+		Secret: val,
+	}, nil
 }
 
 func (af CMSAuthFile) DefineFlags(fs *pflag.FlagSet) {
@@ -74,8 +90,19 @@ func (af CMSAuthFile) Validate() error {
 	return nil
 }
 func (af CMSAuthFile) Token() (AuthToken, error) {
-	//TODO implement me
-	panic("implement me")
+	if af.t.Secret != "" {
+		return af.t, nil
+	}
+
+	zap.S().Debugf("Read auth token from %s file", af.Filename)
+	b, err := os.ReadFile(af.Filename)
+	if err != nil {
+		return AuthToken{}, fmt.Errorf("failed to read token file: %v", err)
+	}
+	return AuthToken{
+		Type:   "OAuth",
+		Secret: string(b),
+	}, nil
 }
 
 func (at CMSAuthIAM) DefineFlags(fs *pflag.FlagSet) {
@@ -96,6 +123,5 @@ func (at CMSAuthIAM) Validate() error {
 	return nil
 }
 func (at CMSAuthIAM) Token() (AuthToken, error) {
-	//TODO implement me
-	panic("implement me")
+	return AuthToken{}, nil
 }

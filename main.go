@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/ydb-platform/ydb-rolling-restart/cmd"
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
-	"go.uber.org/zap/zapcore"
 
 	"go.uber.org/zap"
 )
@@ -18,12 +19,16 @@ func createLogger(level string) (zap.AtomicLevel, *zap.Logger) {
 	atom, _ := zap.ParseAtomicLevel(level)
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.EncodeTime = zapcore.ISO8601TimeEncoder
+	logger := zap.New(
+		zapcore.NewCore(
+			zapcore.NewConsoleEncoder(encoderCfg),
+			zapcore.Lock(os.Stdout),
+			atom,
+		),
+	)
 
-	return atom, zap.New(zapcore.NewCore(
-		zapcore.NewConsoleEncoder(encoderCfg),
-		zapcore.Lock(os.Stdout),
-		atom,
-	))
+	_ = zap.ReplaceGlobals(logger)
+	return atom, logger
 }
 
 func main() {

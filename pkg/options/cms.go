@@ -19,35 +19,31 @@ var (
 )
 
 const (
-	CMSDefaultApiTimeoutSeconds = 60
-	CMSDefaultRetryWaitTime     = 60
-	CMSDefaultAvailAbilityMode  = "max"
-	CMSDefaultAuthType          = "none"
+	CMSDefaultRetryWaitTime    = 60
+	CMSDefaultAvailAbilityMode = "max"
+	CMSDefaultAuthType         = "none"
 )
 
 type CMS struct {
-	Auth              CMSAuth
-	AuthType          string
-	AuthUser          string
-	AvailabilityMode  string
-	ApiTimeoutSeconds int
-	RetryWaitSeconds  int
+	Auth             CMSAuth
+	AuthType         string
+	User             string
+	AvailabilityMode string
+	RetryWaitSeconds int
 }
 
 func (cms *CMS) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&cms.AuthType, "cms-auth-type", "", CMSDefaultAuthType,
 		fmt.Sprintf("CMS Authentication types: %+v", util.Keys(CMSAuths)))
-	fs.StringVarP(&cms.AuthUser, "cms-auth-user", "", "rolling-restart",
-		"CMS Authentication username")
 
 	for _, auth := range CMSAuths {
 		auth.DefineFlags(fs)
 	}
 
+	fs.StringVarP(&cms.User, "cms-user", "", "rolling-restart",
+		"CMS user that will be used for restart")
 	fs.StringVarP(&cms.AvailabilityMode, "cms-availability-mode", "", CMSDefaultAvailAbilityMode,
 		fmt.Sprintf("CMS Availability mode (%+v)", CMSAvailabilityModes))
-	fs.IntVarP(&cms.ApiTimeoutSeconds, "cms-api-timeout-seconds", "", CMSDefaultApiTimeoutSeconds,
-		"CMS API response timeout in seconds")
 	fs.IntVarP(&cms.RetryWaitSeconds, "cms-wait-time-seconds", "", CMSDefaultRetryWaitTime,
 		"CMS retry time in seconds")
 }
@@ -56,7 +52,7 @@ func (cms *CMS) Validate() error {
 	if !util.Contains(util.Keys(CMSAuths), cms.AuthType) {
 		return fmt.Errorf("invalid auth type specified: %s, use one of: %+v", cms.AuthType, util.Keys(CMSAuths))
 	}
-	if len(cms.AuthUser) == 0 {
+	if len(cms.User) == 0 {
 		return fmt.Errorf("empty auth user")
 	}
 
@@ -67,9 +63,6 @@ func (cms *CMS) Validate() error {
 
 	if !util.Contains(CMSAvailabilityModes, cms.AvailabilityMode) {
 		return fmt.Errorf("invalid availability mode specified: %v, use one of: %+v", cms.AvailabilityMode, CMSAvailabilityModes)
-	}
-	if cms.ApiTimeoutSeconds < 0 {
-		return fmt.Errorf("invalid value specified: %d", cms.ApiTimeoutSeconds)
 	}
 	if cms.RetryWaitSeconds < 0 {
 		return fmt.Errorf("invalid value specified: %d", cms.RetryWaitSeconds)

@@ -47,21 +47,21 @@ func (t AuthToken) Token() string {
 	return fmt.Sprintf("%s %s", t.Type, t.Secret)
 }
 
-func (an CMSAuthNone) DefineFlags(_ *pflag.FlagSet) {}
-func (an CMSAuthNone) Validate() error              { return nil }
-func (an CMSAuthNone) Token() (AuthToken, error)    { return AuthToken{}, nil }
+func (an *CMSAuthNone) DefineFlags(_ *pflag.FlagSet) {}
+func (an *CMSAuthNone) Validate() error              { return nil }
+func (an *CMSAuthNone) Token() (AuthToken, error)    { return AuthToken{}, nil }
 
-func (ae CMSAuthEnv) DefineFlags(fs *pflag.FlagSet) {
+func (ae *CMSAuthEnv) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&ae.Name, "cms-auth-env-name", "", DefaultCMSAuthEnvVar,
 		"CMS Authentication environment variable name (type: env)")
 }
-func (ae CMSAuthEnv) Validate() error {
+func (ae *CMSAuthEnv) Validate() error {
 	if len(ae.Name) == 0 {
 		return fmt.Errorf("auth env variable name empty")
 	}
 	return nil
 }
-func (ae CMSAuthEnv) Token() (AuthToken, error) {
+func (ae *CMSAuthEnv) Token() (AuthToken, error) {
 	if ae.t.Secret != "" {
 		return ae.t, nil
 	}
@@ -77,11 +77,11 @@ func (ae CMSAuthEnv) Token() (AuthToken, error) {
 	}, nil
 }
 
-func (af CMSAuthFile) DefineFlags(fs *pflag.FlagSet) {
+func (af *CMSAuthFile) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&af.Filename, "cms-auth-file-token", "", "",
 		"CMS Authentication file token name (type: file)")
 }
-func (af CMSAuthFile) Validate() error {
+func (af *CMSAuthFile) Validate() error {
 	if len(af.Filename) != 0 {
 		if _, err := os.Stat(af.Filename); errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("auth password file not exists: %v", err)
@@ -89,7 +89,7 @@ func (af CMSAuthFile) Validate() error {
 	}
 	return nil
 }
-func (af CMSAuthFile) Token() (AuthToken, error) {
+func (af *CMSAuthFile) Token() (AuthToken, error) {
 	if af.t.Secret != "" {
 		return af.t, nil
 	}
@@ -105,13 +105,13 @@ func (af CMSAuthFile) Token() (AuthToken, error) {
 	}, nil
 }
 
-func (at CMSAuthIAM) DefineFlags(fs *pflag.FlagSet) {
+func (at *CMSAuthIAM) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&at.KeyFilename, "cms-auth-iam-key-file", "", "",
 		"CMS Authentication iam key file path (type: iam)")
 	fs.StringVarP(&at.Endpoint, "cms-auth-iam-endpoint", "", DefaultCMSAuthIAMEndpoint,
 		"CMS Authentication iam endpoint (type: iam)")
 }
-func (at CMSAuthIAM) Validate() error {
+func (at *CMSAuthIAM) Validate() error {
 	if len(at.KeyFilename) != 0 {
 		if _, err := os.Stat(at.KeyFilename); errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("auth iam key file %s not exists: %v", err)
@@ -122,6 +122,6 @@ func (at CMSAuthIAM) Validate() error {
 	}
 	return nil
 }
-func (at CMSAuthIAM) Token() (AuthToken, error) {
+func (at *CMSAuthIAM) Token() (AuthToken, error) {
 	return AuthToken{}, nil
 }

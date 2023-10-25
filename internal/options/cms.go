@@ -1,37 +1,50 @@
 package options
 
 import (
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/spf13/pflag"
+
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 )
 
 var (
-	CMSAvailabilityModes = []string{"max, keep, force"}
+	CMSAvailabilityModes = []string{"max", "keep", "force"}
+	CMSAuths             = map[string]CMSAuth{
+		"none": &CMSAuthNone{},
+		"env":  &CMSAuthEnv{},
+		"file": &CMSAuthFile{},
+		"iam":  &CMSAuthIAM{},
+	}
 )
 
 const (
 	CMSDefaultApiTimeoutSeconds = 60
 	CMSDefaultRetryWaitTime     = 60
+	CMSDefaultAvailAbilityMode  = "max"
+	CMSDefaultAuthType          = "none"
 )
 
 type CMS struct {
+	Auth              CMSAuth
+	AuthType          string
 	AuthUser          string
-	AuthPasswordFile  string
 	AvailabilityMode  string
 	ApiTimeoutSeconds int
 	RetryWaitSeconds  int
 }
 
 func (cms *CMS) DefineFlags(fs *pflag.FlagSet) {
+	fs.StringVarP(&cms.AuthType, "cms-auth-type", "", CMSDefaultAuthType,
+		fmt.Sprintf("CMS Authentication types: %+v", util.Keys(CMSAuths)))
 	fs.StringVarP(&cms.AuthUser, "cms-auth-user", "", "rolling-restart",
-		"Specify username which will be used by CMS")
-	fs.StringVarP(&cms.AuthPasswordFile, "cms-auth-password-file", "", "",
-		"Specify path to authentication file for cms user")
-	fs.StringVarP(&cms.AvailabilityMode, "cms-availability-mode", "", "max",
+		"CMS Authentication username")
+
+	for _, auth := range CMSAuths {
+		auth.DefineFlags(fs)
+	}
+
+	fs.StringVarP(&cms.AvailabilityMode, "cms-availability-mode", "", CMSDefaultAvailAbilityMode,
 		fmt.Sprintf("CMS Availability mode (%+v)", CMSAvailabilityModes))
 	fs.IntVarP(&cms.ApiTimeoutSeconds, "cms-api-timeout-seconds", "", CMSDefaultApiTimeoutSeconds,
 		"CMS API response timeout in seconds")
@@ -40,14 +53,18 @@ func (cms *CMS) DefineFlags(fs *pflag.FlagSet) {
 }
 
 func (cms *CMS) Validate() error {
+	if !util.Contains(util.Keys(CMSAuths), cms.AuthType) {
+		return fmt.Errorf("invalid auth type specified: %s, use one of: %+v", cms.AuthType, util.Keys(CMSAuths))
+	}
 	if len(cms.AuthUser) == 0 {
 		return fmt.Errorf("empty auth user")
 	}
-	if len(cms.AuthPasswordFile) != 0 {
-		if _, err := os.Stat(cms.AuthPasswordFile); errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("auth password file not exists: %v", err)
-		}
+
+	cms.Auth = CMSAuths[cms.AuthType]
+	if err := cms.Auth.Validate(); err != nil {
+		return err
 	}
+
 	if !util.Contains(CMSAvailabilityModes, cms.AvailabilityMode) {
 		return fmt.Errorf("invalid availability mode specified: %v, use one of: %+v", cms.AvailabilityMode, CMSAvailabilityModes)
 	}

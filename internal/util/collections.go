@@ -18,3 +18,13 @@ func Contains[T comparable](elems []T, elem T) bool {
 	}
 	return false
 }
+
+func Keys[T any, K comparable](m map[K]T) []K {
+	keys := make([]K, 0, len(m))
+
+	for key := range m {
+		keys = append(keys, key)
+	}
+
+	return keys
+}

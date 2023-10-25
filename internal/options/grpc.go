@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/spf13/pflag"
+
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 )
 
@@ -22,13 +23,13 @@ type GRPC struct {
 
 func (grpc *GRPC) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVarP(&grpc.Addr, "grpc-address", "", grpc.Addr,
-		"Specify endpoints which will be used to connect to cluster")
+		"GRPC addresses which will be used to connect to cluster")
 	fs.IntVarP(&grpc.Port, "grpc-port", "", DefaultGRPCPort,
-		"Specify grpc port which will be used to connect to cluster")
+		"GRPC port available on all addresses")
 	fs.BoolVarP(&grpc.Secure, "grpc-secure", "", grpc.Secure,
-		"Use secure protocol (grpcs)")
+		"GRPC or GRPCS protocol to use")
 	fs.StringVarP(&grpc.RootCA, "grpc-secure-root-ca", "", grpc.RootCA,
-		"Path to root ca certs")
+		"GRPCS path to root CA")
 }
 
 func (grpc *GRPC) Validate() error {

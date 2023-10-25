@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ydb-platform/ydb-rolling-restart/cmd"
+	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 	"go.uber.org/zap/zapcore"
 
 	"go.uber.org/zap"
@@ -41,7 +42,7 @@ func main() {
 			logLevelSetter.SetLevel(lvc)
 		},
 	}
-	defer logger.Sync()
+	defer util.IgnoreError(logger.Sync)
 
 	root.PersistentFlags().StringVarP(&logLevel, "log-level", "", logLevel, "Logging level")
 	root.AddCommand(

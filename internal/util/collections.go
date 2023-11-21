@@ -1,5 +1,10 @@
 package util
 
+import (
+	"sort"
+	"strings"
+)
+
 func Convert[T any, P any](items []T, converterF func(T) P) []P {
 	values := make([]P, 0, len(items))
 
@@ -27,4 +32,27 @@ func Keys[T any, K comparable](m map[K]T) []K {
 	}
 
 	return keys
+}
+
+func Join[T any](items []T, sep string, captionF func(T) string) string {
+	b := strings.Builder{}
+
+	for i, item := range items {
+		b.WriteString(captionF(item))
+
+		if i != len(items)-1 {
+			b.WriteString(sep)
+		}
+	}
+
+	return b.String()
+}
+
+func SortBy[T any](items []T, lessF func(T, T) bool) []T {
+	sort.Slice(items,
+		func(i, j int) bool {
+			return lessF(items[i], items[j])
+		},
+	)
+	return items
 }

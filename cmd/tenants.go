@@ -2,10 +2,9 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/ydb-platform/ydb-go-genproto/Ydb_Cms_V1"
-	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Cms"
 	"go.uber.org/zap"
 
+	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/options"
 )
@@ -31,35 +30,22 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 				return err
 			}
 
-			logger.Info("Started")
-			f := cms.NewConnectionFactory(
-				*opts.GRPC,
-				opts.CMS.Auth,
-				opts.CMS.User,
+			c := cms.NewCMSClient(
+				logger,
+				cms.NewConnectionFactory(
+					*opts.GRPC,
+					opts.CMS.Auth,
+					opts.CMS.User,
+				),
 			)
-			logger.Info("Create connection")
-			cc, err := f.Connection()
+			tenants, err := c.Tenants()
 			if err != nil {
-				logger.Errorf("%+v", err)
+				logger.Errorf("Failed to list tenants: %v", err)
 				return err
 			}
 
-			cl := Ydb_Cms_V1.NewCmsServiceClient(cc)
-			ctx, cancel := f.Context()
-			defer cancel()
-
-			logger.Info("Invoke list databases")
-			r, err := cl.ListDatabases(ctx,
-				&Ydb_Cms.ListDatabasesRequest{
-					OperationParams: f.OperationParams(),
-				},
-			)
-
-			if err != nil {
-				logger.Errorf("%+v", err)
-				return err
-			}
-			logger.Infof("%+v", r)
+			msg := util.Join(tenants, "\n", func(s string) string { return s })
+			logger.Infof("Tenants:\n%s", msg)
 
 			return nil
 		},

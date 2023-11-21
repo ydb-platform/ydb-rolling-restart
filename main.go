@@ -51,7 +51,7 @@ func main() {
 
 	root.PersistentFlags().StringVarP(&logLevel, "log-level", "", logLevel, "Logging level")
 	root.AddCommand(
-		cmd.NewServicesCommand(logger),
+		cmd.NewNodesCommand(logger),
 		cmd.NewTenantsCommand(logger),
 		cmd.NewRestartCommand(logger),
 	)

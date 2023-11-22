@@ -80,3 +80,39 @@ func (c *CMSClient) Nodes() ([]*Ydb_Maintenance.ListClusterNodesResponse_Node, e
 	)
 	return s, nil
 }
+
+func (c *CMSClient) MaintenanceTasks() ([]string, error) {
+	cc, err := c.f.Connection()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := c.f.Context()
+	defer cancel()
+
+	cl := Ydb_Maintenance_V1.NewMaintenanceServiceClient(cc)
+	r, err := cl.ListMaintenanceTasks(ctx, &Ydb_Maintenance.ListMaintenanceTasksRequest{User: c.f.User()})
+	if err != nil {
+		return nil, err
+	}
+
+	return r.TasksUids, nil
+}
+
+func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
+	cc, err := c.f.Connection()
+	if err != nil {
+		return "", err
+	}
+
+	ctx, cancel := c.f.Context()
+	defer cancel()
+
+	cl := Ydb_Maintenance_V1.NewMaintenanceServiceClient(cc)
+	r, err := cl.DropMaintenanceTask(ctx, &Ydb_Maintenance.DropMaintenanceTaskRequest{TaskUid: taskId})
+	if err != nil {
+		return "", err
+	}
+
+	return r.Status.String(), nil
+}

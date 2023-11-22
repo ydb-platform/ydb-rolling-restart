@@ -90,3 +90,7 @@ func (f Factory) Endpoint() string {
 	)
 	return fmt.Sprintf("%s:%d", f.grpc.Addr[addrIndex], f.grpc.Port)
 }
+
+func (f Factory) User() string {
+	return f.user
+}

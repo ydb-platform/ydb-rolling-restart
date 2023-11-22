@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/options"
 )
 
@@ -14,7 +15,7 @@ type CleanOptions struct {
 
 func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 	logger := lf.Sugar()
-	opts := RestartOptions{
+	opts := CleanOptions{
 		CMS:  &options.CMS{},
 		GRPC: &options.GRPC{},
 	}
@@ -23,7 +24,32 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 		Short: "Perform cleanup of management requests in cluster",
 		Long:  "Perform cleanup of management requests in cluster (long version)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logger.Info("clean called")
+			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
+				logger.Error("Failed to validate options", zap.Error(err))
+				return err
+			}
+
+			c := cms.NewCMSClient(
+				logger,
+				cms.NewConnectionFactory(
+					*opts.GRPC,
+					opts.CMS.Auth,
+					opts.CMS.User,
+				),
+			)
+			tasks, err := c.MaintenanceTasks()
+			if err != nil {
+				logger.Errorf("Failed to list tasks: %v", err)
+				return err
+			}
+			for _, taskId := range tasks {
+				status, err := c.DropMaintenanceTask(taskId)
+				if err != nil {
+					logger.Errorf("Failed to drop maintenance task: %v", err)
+					continue
+				}
+				logger.Infof("Drop task with id: %s status is %s", tasks, status)
+			}
 			return nil
 		},
 	}

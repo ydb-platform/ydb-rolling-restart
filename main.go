@@ -54,6 +54,7 @@ func main() {
 		cmd.NewNodesCommand(logger),
 		cmd.NewTenantsCommand(logger),
 		cmd.NewRestartCommand(logger),
+		cmd.NewCleanCommand(logger),
 	)
 
 	if err := root.Execute(); err != nil {

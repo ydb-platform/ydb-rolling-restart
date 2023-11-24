@@ -41,7 +41,7 @@ func NewRestartCommand(lf *zap.Logger) *cobra.Command {
 					opts.CMS.User,
 				),
 			)
-			r := rolling.New(c, logger)
+			r := rolling.New(c, logger, opts.Rolling)
 
 			// todo: any cleanup?
 			// todo: logging here

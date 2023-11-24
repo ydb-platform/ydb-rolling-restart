@@ -9,16 +9,27 @@ import (
 type Rolling struct {
 	logger *zap.SugaredLogger
 	cms    *cms.CMSClient
+	opts   *Options
 }
 
-func New(cms *cms.CMSClient, logger *zap.SugaredLogger) *Rolling {
+func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling {
 	return &Rolling{
 		cms:    cms,
 		logger: logger,
+		opts:   opts,
 	}
 }
 
 func (r *Rolling) Restart() error {
+	factory := ExecutorFactoryMap[r.opts.ExecutorType]
+	ex, err := factory(ExecutorOptionsMap[r.opts.ExecutorType])
+	if err != nil {
+		return err
+	}
+
+	if err := ex.Prepare(); err != nil {
+		return err
+	}
 
 	// todo:
 	//  1. filter out nodes by tenant/specified nodes

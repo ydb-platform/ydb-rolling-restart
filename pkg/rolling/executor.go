@@ -5,7 +5,7 @@ var (
 	ExecutorFactoryMap = map[string]ExecutorFactory{}
 )
 
-type ExecutorFactory func(o Options) Executor
+type ExecutorFactory func(o Options) (Executor, error)
 type Executor interface {
 	Prepare() error
 	FilterNodes()

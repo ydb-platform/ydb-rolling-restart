@@ -10,6 +10,8 @@ import (
 
 type Options struct {
 	ExecutorType string
+	Tenants      []string
+	Nodes        []string
 }
 
 func (o *Options) DefineFlags(fs *pflag.FlagSet) {
@@ -21,6 +23,12 @@ func (o *Options) DefineFlags(fs *pflag.FlagSet) {
 
 	fs.StringVarP(&o.ExecutorType, "executor-type", "", o.ExecutorType,
 		fmt.Sprintf("Executor type. Available choices: %s", executors))
+
+	fs.StringArrayVarP(&o.Tenants, "tenants", "", o.Tenants,
+		"Restart only specified tenants")
+
+	fs.StringArrayVarP(&o.Nodes, "nodes", "", o.Nodes,
+		"Restart only specified nodes")
 
 	for _, executor := range ExecutorOptionsMap {
 		executor.DefineFlags(fs)

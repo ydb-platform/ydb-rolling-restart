@@ -10,6 +10,9 @@ import (
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 )
 
+// todo: add error handling, retries
+// todo: add operation result check
+
 type CMSClient struct {
 	logger *zap.SugaredLogger
 	f      *Factory
@@ -23,8 +26,6 @@ func NewCMSClient(logger *zap.SugaredLogger, f *Factory) *CMSClient {
 }
 
 func (c *CMSClient) Tenants() ([]string, error) {
-	// todo: error handling, retries
-
 	cc, err := c.f.Connection()
 	if err != nil {
 		return nil, err
@@ -56,7 +57,7 @@ func (c *CMSClient) Tenants() ([]string, error) {
 	return s, nil
 }
 
-func (c *CMSClient) Nodes() ([]*Ydb_Maintenance.ListClusterNodesResponse_Node, error) {
+func (c *CMSClient) Nodes() ([]*Ydb_Maintenance.Node, error) {
 	cc, err := c.f.Connection()
 	if err != nil {
 		return nil, err
@@ -73,8 +74,13 @@ func (c *CMSClient) Nodes() ([]*Ydb_Maintenance.ListClusterNodesResponse_Node, e
 		return nil, err
 	}
 
-	s := util.SortBy(r.Nodes,
-		func(l *Ydb_Maintenance.ListClusterNodesResponse_Node, r *Ydb_Maintenance.ListClusterNodesResponse_Node) bool {
+	o := Ydb_Maintenance.ListClusterNodesResult{}
+	if err := r.Operation.Result.UnmarshalTo(&o); err != nil {
+		return nil, err
+	}
+
+	s := util.SortBy(o.Nodes,
+		func(l *Ydb_Maintenance.Node, r *Ydb_Maintenance.Node) bool {
 			return l.NodeId < r.NodeId
 		},
 	)
@@ -91,12 +97,19 @@ func (c *CMSClient) MaintenanceTasks() ([]string, error) {
 	defer cancel()
 
 	cl := Ydb_Maintenance_V1.NewMaintenanceServiceClient(cc)
-	r, err := cl.ListMaintenanceTasks(ctx, &Ydb_Maintenance.ListMaintenanceTasksRequest{User: c.f.User()})
+	r, err := cl.ListMaintenanceTasks(ctx, &Ydb_Maintenance.ListMaintenanceTasksRequest{
+		User: util.Pointer(c.f.User()),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return r.TasksUids, nil
+	o := Ydb_Maintenance.ListMaintenanceTasksResult{}
+	if err := r.Operation.Result.UnmarshalTo(&o); err != nil {
+		return nil, err
+	}
+
+	return o.TasksUids, nil
 }
 
 func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
@@ -114,5 +127,5 @@ func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
 		return "", err
 	}
 
-	return r.Status.String(), nil
+	return r.Operation.Id, nil
 }

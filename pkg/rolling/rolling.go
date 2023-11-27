@@ -21,8 +21,8 @@ func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling 
 }
 
 func (r *Rolling) Restart() error {
-	factory := ExecutorFactoryMap[r.opts.ExecutorType]
-	ex, err := factory(ExecutorOptionsMap[r.opts.ExecutorType])
+	factory := ServiceFactoryMap[r.opts.Service]
+	ex, err := factory(ServiceOptionsMap[r.opts.Service])
 	if err != nil {
 		return err
 	}

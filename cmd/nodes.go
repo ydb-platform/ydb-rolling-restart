@@ -48,8 +48,8 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 			}
 
 			msg := util.Join(nodes, "\n",
-				func(node *Ydb_Maintenance.ListClusterNodesResponse_Node) string {
-					return fmt.Sprintf("%d\t%s\t%s", node.NodeId, node.Fqdn, node.State)
+				func(node *Ydb_Maintenance.Node) string {
+					return fmt.Sprintf("%d\t%s\t%s", node.NodeId, node.Host, node.State)
 				},
 			)
 			logger.Infof("Nodes:\n%s", msg)

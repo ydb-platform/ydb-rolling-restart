@@ -2,11 +2,15 @@ package cms
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/ydb-platform/ydb-go-genproto/Ydb_Cms_V1"
 	"github.com/ydb-platform/ydb-go-genproto/draft/Ydb_Maintenance_V1"
 	"github.com/ydb-platform/ydb-go-genproto/draft/protos/Ydb_Maintenance"
+	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Cms"
+	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Issue"
 	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb_Operations"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -202,11 +206,13 @@ func (c *CMSClient) ExecuteMaintenanceMethod(
 	defer cancel()
 
 	cl := Ydb_Maintenance_V1.NewMaintenanceServiceClient(cc)
+	c.logger.Debug("Invoke maintenance service method")
 	r, err := method(ctx, cl)
 	if err != nil {
 		return nil, err
 	}
 	op := r.GetOperation()
+	c.logOperation(op)
 
 	if out == nil {
 		return op, nil
@@ -232,11 +238,13 @@ func (c *CMSClient) ExecuteCMSMethod(
 	defer cancel()
 
 	cl := Ydb_Cms_V1.NewCmsServiceClient(cc)
+	c.logger.Debug("Invoke cms service method")
 	r, err := method(ctx, cl)
 	if err != nil {
 		return nil, err
 	}
 	op := r.GetOperation()
+	c.logOperation(op)
 
 	if out == nil {
 		return op, nil
@@ -246,5 +254,27 @@ func (c *CMSClient) ExecuteCMSMethod(
 		return op, err
 	}
 
+	if op.Status != Ydb.StatusIds_SUCCESS {
+		return op, fmt.Errorf("unsuccessful status code: %s", op.Status)
+	}
+
 	return op, nil
+}
+
+func (c *CMSClient) logOperation(op *Ydb_Operations.Operation) {
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("Operation status: %s", op.Status))
+
+	if len(op.Issues) > 0 {
+		sb.WriteString(
+			fmt.Sprintf("\nIssues:\n%s",
+				util.Join(op.Issues, "\n",
+					func(issue *Ydb_Issue.IssueMessage) string {
+						return fmt.Sprintf("  Severity: %d, code: %d, message: %s", issue.Severity, issue.IssueCode, issue.Message)
+					},
+				),
+			))
+	}
+
+	c.logger.Debugf("Operation:\n%s", sb.String())
 }

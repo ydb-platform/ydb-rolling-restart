@@ -48,6 +48,10 @@ func Join[T any](items []T, sep string, captionF func(T) string) string {
 	return b.String()
 }
 
+func JoinStrings(items []string, sep string) string {
+	return Join(items, sep, func(s string) string { return s })
+}
+
 func SortBy[T any](items []T, lessF func(T, T) bool) []T {
 	sort.Slice(items,
 		func(i, j int) bool {

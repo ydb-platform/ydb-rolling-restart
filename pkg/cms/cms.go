@@ -86,6 +86,50 @@ func (c *CMSClient) MaintenanceTasks() ([]string, error) {
 	return result.TasksUids, nil
 }
 
+func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Maintenance.MaintenanceTaskResult, error) {
+	request := &Ydb_Maintenance.CreateMaintenanceTaskRequest{
+		OperationParams: c.f.OperationParams(),
+		TaskOptions: &Ydb_Maintenance.MaintenanceTaskOptions{
+			TaskUid:          params.TaskUid,
+			AvailabilityMode: params.AvailAbilityMode,
+			Description:      "Rolling restart maintenance task",
+		},
+		ActionGroups: make([]*Ydb_Maintenance.ActionGroup, 0, len(params.Nodes)),
+	}
+
+	for _, node := range params.Nodes {
+		request.ActionGroups = append(request.ActionGroups,
+			&Ydb_Maintenance.ActionGroup{
+				Actions: []*Ydb_Maintenance.Action{
+					{
+						Action: &Ydb_Maintenance.Action_LockAction{
+							LockAction: &Ydb_Maintenance.LockAction{
+								Scope: &Ydb_Maintenance.ActionScope{
+									Scope: &Ydb_Maintenance.ActionScope_NodeId{
+										NodeId: node.NodeId,
+									},
+								},
+								Duration: params.Duration,
+							},
+						},
+					},
+				},
+			},
+		)
+	}
+
+	result := &Ydb_Maintenance.MaintenanceTaskResult{}
+	_, err := c.ExecuteMaintenanceMethod(result,
+		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			return cl.CreateMaintenanceTask(ctx, request)
+		},
+	)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
 func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
 	op, err := c.ExecuteMaintenanceMethod(nil,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {

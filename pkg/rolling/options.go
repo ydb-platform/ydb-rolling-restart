@@ -3,9 +3,11 @@ package rolling
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/ydb-platform/ydb-go-genproto/draft/protos/Ydb_Maintenance"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 )
@@ -61,4 +63,8 @@ func (o *Options) AvailabilityMode() Ydb_Maintenance.AvailabilityMode {
 	value := Ydb_Maintenance.AvailabilityMode_value[title]
 
 	return Ydb_Maintenance.AvailabilityMode(value)
+}
+
+func (o *Options) RestartDuration() *durationpb.Duration {
+	return durationpb.New(time.Minute)
 }

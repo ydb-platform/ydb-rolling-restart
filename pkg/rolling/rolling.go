@@ -31,12 +31,8 @@ func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling 
 }
 
 func (r *Rolling) Restart() error {
-	service, err := r.service()
+	service, err := r.createService()
 	if err != nil {
-		return err
-	}
-
-	if err := service.Prepare(); err != nil {
 		return err
 	}
 
@@ -62,6 +58,7 @@ func (r *Rolling) Restart() error {
 	taskParams := cms.MaintenanceTaskParams{
 		TaskUid:          RestartTaskUid,
 		AvailAbilityMode: r.opts.AvailabilityMode(),
+		Duration:         r.opts.RestartDuration(),
 		Nodes:            nodesToRestart,
 	}
 	task, err := r.cms.CreateMaintenanceTask(taskParams)
@@ -74,7 +71,12 @@ func (r *Rolling) Restart() error {
 }
 
 func (r *Rolling) RestartPrevious() error {
+	service, err := r.createService()
+	if err != nil {
+		return err
+	}
 
+	_ = service
 	// todo:
 	//  1. find previous restart
 	//  2. run loop
@@ -83,36 +85,74 @@ func (r *Rolling) RestartPrevious() error {
 }
 
 func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
-	for r.next(result) {
-		// todo: sleep if required
+	const (
+		defaultDelay = time.Second * 30
+	)
+
+	var (
+		delay = defaultDelay
+		err   error
+	)
+
+	for {
+		if result != nil {
+			r.logResult(result)
+		}
+
+		// action can be performed
+		if result == nil || result.RetryAfter != nil {
+			// calculate delay relative to current time
+			delay = result.RetryAfter.AsTime().Sub(time.Now().UTC())
+		} else {
+			// process action groups & use default delay
+			ok := r.next(result)
+			if !ok {
+				r.logger.Infof("Processing completed")
+				break
+			}
+			delay = defaultDelay
+		}
+
+		r.logger.Infof("Wait for delay: %s", delay)
+		time.Sleep(delay)
+
+		r.logger.Infof("Refresh maintenance task")
+		result, err = r.cms.RefreshMaintenanceTask(result.TaskUid)
+		if err != nil {
+			r.logger.Warnf("Failed to refresh maintenance task: %+v", err)
+		}
 	}
 
 	return nil
 }
 
 func (r *Rolling) next(result *Ydb_Maintenance.MaintenanceTaskResult) bool {
-	const (
-		delay = time.Second * 30
-	)
+	// todo: get available actions from result & perform restart on each node
 
-	r.logResult(result)
-	r.logger.Infof("Waiting locks for %s:", delay)
-	time.Sleep(delay)
 	return true
 }
 
-func (r *Rolling) service() (Service, error) {
+func (r *Rolling) createService() (Service, error) {
 	factory := ServiceFactoryMap[r.opts.Service]
 	service, err := factory(ServiceOptionsMap[r.opts.Service])
 	if err != nil {
 		return nil, err
 	}
+
+	if err := service.Prepare(); err != nil {
+		return nil, err
+	}
+
 	return service, nil
 }
 
 func (r *Rolling) logResult(result *Ydb_Maintenance.MaintenanceTaskResult) {
 	sb := strings.Builder{}
 	sb.WriteString(fmt.Sprintf("Uid: %s\n", result.TaskUid))
+
+	if result.RetryAfter != nil {
+		sb.WriteString(fmt.Sprintf("Retry after: %s\n", result.RetryAfter.AsTime().Format(time.DateTime)))
+	}
 
 	for _, gs := range result.ActionGroupStates {
 		as := gs.ActionStates[0]

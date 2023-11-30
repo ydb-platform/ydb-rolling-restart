@@ -119,15 +119,36 @@ func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Ma
 	}
 
 	result := &Ydb_Maintenance.MaintenanceTaskResult{}
-	_, err := c.ExecuteMaintenanceMethod(result,
+	op, err := c.ExecuteMaintenanceMethod(result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
 			return cl.CreateMaintenanceTask(ctx, request)
 		},
 	)
+	_ = op
+
 	if err != nil {
 		return result, err
 	}
 	return result, nil
+}
+
+func (c *CMSClient) RefreshMaintenanceTask(taskId string) (*Ydb_Maintenance.MaintenanceTaskResult, error) {
+	result := Ydb_Maintenance.MaintenanceTaskResult{}
+	op, err := c.ExecuteMaintenanceMethod(&result,
+		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			return cl.RefreshMaintenanceTask(ctx, &Ydb_Maintenance.RefreshMaintenanceTaskRequest{
+				OperationParams: c.f.OperationParams(),
+				TaskUid:         taskId,
+			})
+		},
+	)
+	_ = op
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {

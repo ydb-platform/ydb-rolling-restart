@@ -167,6 +167,23 @@ func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
 	return op.Status.String(), nil
 }
 
+func (c *CMSClient) CompleteAction(actionIds []*Ydb_Maintenance.ActionUid) (*Ydb_Maintenance.ManageActionResult, error) {
+	result := Ydb_Maintenance.ManageActionResult{}
+	op, err := c.ExecuteMaintenanceMethod(&result,
+		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			return cl.CompleteAction(ctx, &Ydb_Maintenance.CompleteActionRequest{
+				OperationParams: c.f.OperationParams(),
+				ActionUids:      actionIds,
+			})
+		},
+	)
+	_ = op
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 func (c *CMSClient) ExecuteMaintenanceMethod(
 	out proto.Message,
 	method func(context.Context, Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error),

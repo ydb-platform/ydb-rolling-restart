@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231127104746-3756fa2db60b
+	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231128130341-73abaf71a131
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.47.0

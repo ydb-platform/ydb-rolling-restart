@@ -8,6 +8,7 @@ import (
 	"github.com/ydb-platform/ydb-go-genproto/draft/protos/Ydb_Maintenance"
 	"go.uber.org/zap"
 
+	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
 )
 
@@ -15,6 +16,11 @@ type Rolling struct {
 	logger *zap.SugaredLogger
 	cms    *cms.CMSClient
 	opts   *Options
+
+	// internal state available during restart
+	service Service
+	nodes   []*Ydb_Maintenance.Node
+	tenants []string
 }
 
 const (
@@ -31,26 +37,15 @@ func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling 
 }
 
 func (r *Rolling) Restart() error {
-	service, err := r.createService()
-	if err != nil {
+	if err := r.prepareState(); err != nil {
 		return err
 	}
 
-	tenants, err := r.cms.Tenants()
-	if err != nil {
-		return fmt.Errorf("failed to list avaialble tenants: %+v", err)
-	}
-
-	nodes, err := r.cms.Nodes()
-	if err != nil {
-		return fmt.Errorf("failed to list avaialble nodes: %+v", err)
-	}
-
-	nodesToRestart := service.Filter(
+	nodesToRestart := r.service.Filter(
 		FilterNodeParams{
 			Service:         r.opts.Service,
-			AllTenants:      tenants,
-			AllNodes:        nodes,
+			AllTenants:      r.tenants,
+			AllNodes:        r.nodes,
 			SelectedTenants: r.opts.Tenants,
 			SelectedNodeIds: r.opts.Nodes,
 		},
@@ -71,12 +66,10 @@ func (r *Rolling) Restart() error {
 }
 
 func (r *Rolling) RestartPrevious() error {
-	service, err := r.createService()
-	if err != nil {
+	if err := r.prepareState(); err != nil {
 		return err
 	}
 
-	_ = service
 	// todo:
 	//  1. find previous restart
 	//  2. run loop
@@ -84,7 +77,7 @@ func (r *Rolling) RestartPrevious() error {
 	return nil
 }
 
-func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
+func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
 	const (
 		defaultDelay = time.Second * 30
 	)
@@ -95,20 +88,20 @@ func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
 	)
 
 	for {
-		if result != nil {
-			r.logResult(result)
+		if task != nil {
+			r.logTask(task)
 		}
 
 		// action can be performed
-		if result == nil || result.RetryAfter != nil {
+		if task == nil || task.RetryAfter != nil {
 			// calculate delay relative to current time
-			delay = result.RetryAfter.AsTime().Sub(time.Now().UTC())
+			delay = task.RetryAfter.AsTime().Sub(time.Now().UTC())
 			if defaultDelay < delay {
 				delay = defaultDelay
 			}
 		} else {
 			// process action groups & use default delay
-			ok := r.next(result)
+			ok := r.next(task)
 			if !ok {
 				r.logger.Infof("Processing completed")
 				break
@@ -120,7 +113,7 @@ func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
 		time.Sleep(delay)
 
 		r.logger.Infof("Refresh maintenance task")
-		result, err = r.cms.RefreshMaintenanceTask(result.TaskUid)
+		task, err = r.cms.RefreshMaintenanceTask(task.TaskUid)
 		if err != nil {
 			r.logger.Warnf("Failed to refresh maintenance task: %+v", err)
 		}
@@ -129,10 +122,67 @@ func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
 	return nil
 }
 
-func (r *Rolling) next(result *Ydb_Maintenance.MaintenanceTaskResult) bool {
-	// todo: get available actions from result & perform restart on each node
+func (r *Rolling) next(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
+	performed := util.FilterBy(task.ActionGroupStates,
+		func(gs *Ydb_Maintenance.ActionGroupStates) bool {
+			return gs.ActionStates[0].Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED
+		},
+	)
+	ids := make([]*Ydb_Maintenance.ActionUid, 0, len(performed))
 
-	return true
+	for _, gs := range performed {
+		var (
+			as     = gs.ActionStates[0]
+			lock   = as.Action.GetLockAction()
+			nodeId = lock.Scope.GetNodeId()
+		)
+
+		nodes := util.FilterBy(r.nodes,
+			func(node *Ydb_Maintenance.Node) bool {
+				return node.NodeId == nodeId
+			},
+		)
+
+		// todo: drain node
+
+		if err := r.service.RestartNode(nodes[0]); err != nil {
+			// todo: failed to restart node ?
+		}
+
+		ids = append(ids, as.ActionUid)
+	}
+
+	result, err := r.cms.CompleteAction(ids)
+	if err != nil {
+		// todo: failed to complete action ?
+	}
+	r.logCompleteResult(result)
+
+	// completed when all actions marked as completed
+	return len(task.ActionGroupStates) == len(result.ActionStatuses)
+}
+
+func (r *Rolling) prepareState() error {
+	service, err := r.createService()
+	if err != nil {
+		return err
+	}
+
+	tenants, err := r.cms.Tenants()
+	if err != nil {
+		return fmt.Errorf("failed to list avaialble tenants: %+v", err)
+	}
+
+	nodes, err := r.cms.Nodes()
+	if err != nil {
+		return fmt.Errorf("failed to list avaialble nodes: %+v", err)
+	}
+
+	r.service = service
+	r.nodes = nodes
+	r.tenants = tenants
+
+	return nil
 }
 
 func (r *Rolling) createService() (Service, error) {
@@ -149,15 +199,19 @@ func (r *Rolling) createService() (Service, error) {
 	return service, nil
 }
 
-func (r *Rolling) logResult(result *Ydb_Maintenance.MaintenanceTaskResult) {
-	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf("Uid: %s\n", result.TaskUid))
-
-	if result.RetryAfter != nil {
-		sb.WriteString(fmt.Sprintf("Retry after: %s\n", result.RetryAfter.AsTime().Format(time.DateTime)))
+func (r *Rolling) logTask(task *Ydb_Maintenance.MaintenanceTaskResult) {
+	if task == nil {
+		return
 	}
 
-	for _, gs := range result.ActionGroupStates {
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("Uid: %s\n", task.TaskUid))
+
+	if task.RetryAfter != nil {
+		sb.WriteString(fmt.Sprintf("Retry after: %s\n", task.RetryAfter.AsTime().Format(time.DateTime)))
+	}
+
+	for _, gs := range task.ActionGroupStates {
 		as := gs.ActionStates[0]
 		sb.WriteString(fmt.Sprintf("  Lock on node %d ", as.Action.GetLockAction().Scope.GetNodeId()))
 		if as.Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED {
@@ -168,4 +222,18 @@ func (r *Rolling) logResult(result *Ydb_Maintenance.MaintenanceTaskResult) {
 		sb.WriteString("\n")
 	}
 	r.logger.Debugf("Maintenance task result:\n%s", sb.String())
+}
+
+func (r *Rolling) logCompleteResult(result *Ydb_Maintenance.ManageActionResult) {
+	if result == nil {
+		return
+	}
+
+	sb := strings.Builder{}
+
+	for _, status := range result.ActionStatuses {
+		sb.WriteString(fmt.Sprintf("  Action: %s, status: %s", status.ActionUid, status.Status))
+	}
+
+	r.logger.Debugf("Manage action result:\n%s", sb.String())
 }

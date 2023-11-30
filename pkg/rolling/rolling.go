@@ -2,6 +2,7 @@ package rolling
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ydb-platform/ydb-go-genproto/draft/protos/Ydb_Maintenance"
@@ -30,8 +31,7 @@ func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling 
 }
 
 func (r *Rolling) Restart() error {
-	factory := ServiceFactoryMap[r.opts.Service]
-	service, err := factory(ServiceOptionsMap[r.opts.Service])
+	service, err := r.service()
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,34 @@ func (r *Rolling) next(result *Ydb_Maintenance.MaintenanceTaskResult) bool {
 		delay = time.Second * 30
 	)
 
+	r.logResult(result)
 	r.logger.Infof("Waiting locks for %s:", delay)
-	r.logger.Infof("%+v", result)
+	time.Sleep(delay)
 	return true
+}
+
+func (r *Rolling) service() (Service, error) {
+	factory := ServiceFactoryMap[r.opts.Service]
+	service, err := factory(ServiceOptionsMap[r.opts.Service])
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+func (r *Rolling) logResult(result *Ydb_Maintenance.MaintenanceTaskResult) {
+	sb := strings.Builder{}
+	sb.WriteString(fmt.Sprintf("Uid: %s\n", result.TaskUid))
+
+	for _, gs := range result.ActionGroupStates {
+		as := gs.ActionStates[0]
+		sb.WriteString(fmt.Sprintf("  Lock on node %d ", as.Action.GetLockAction().Scope.GetNodeId()))
+		if as.Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED {
+			sb.WriteString(fmt.Sprintf("PERFORMED, until: %s", as.Deadline.AsTime().Format(time.DateTime)))
+		} else {
+			sb.WriteString("PENDING")
+		}
+		sb.WriteString("\n")
+	}
+	r.logger.Debugf("Maintenance task result:\n%s", sb.String())
 }

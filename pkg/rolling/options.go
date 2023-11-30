@@ -34,13 +34,15 @@ func (o *Options) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVarP(&o.Nodes, "nodes", "", o.Nodes,
 		"Restart only specified nodes")
 
-	for _, executor := range ServiceOptionsMap {
-		executor.DefineFlags(fs)
+	for _, opts := range ServiceOptionsMap {
+		if opts != nil {
+			opts.DefineFlags(fs)
+		}
 	}
 }
 
 func (o *Options) Validate() error {
-	so, exists := ServiceOptionsMap[o.Service]
+	opts, exists := ServiceOptionsMap[o.Service]
 	if !exists {
 		return fmt.Errorf("specified not supported service: %s", o.Service)
 	}
@@ -48,7 +50,10 @@ func (o *Options) Validate() error {
 	if !util.Contains(AvailabilityModes, o.Mode) {
 		return fmt.Errorf("specified not supported availability mode: %s", o.AvailabilityMode)
 	}
-	return so.Validate()
+	if opts != nil {
+		return opts.Validate()
+	}
+	return nil
 }
 
 func (o *Options) AvailabilityMode() Ydb_Maintenance.AvailabilityMode {

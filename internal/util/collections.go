@@ -60,3 +60,15 @@ func SortBy[T any](items []T, lessF func(T, T) bool) []T {
 	)
 	return items
 }
+
+func FilterBy[T any](items []T, filterF func(T) bool) []T {
+	result := make([]T, 0)
+
+	for _, item := range items {
+		if filterF(item) {
+			result = append(result, item)
+		}
+	}
+
+	return result
+}

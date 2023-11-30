@@ -103,6 +103,9 @@ func (r *Rolling) loop(result *Ydb_Maintenance.MaintenanceTaskResult) error {
 		if result == nil || result.RetryAfter != nil {
 			// calculate delay relative to current time
 			delay = result.RetryAfter.AsTime().Sub(time.Now().UTC())
+			if defaultDelay < delay {
+				delay = defaultDelay
+			}
 		} else {
 			// process action groups & use default delay
 			ok := r.next(result)

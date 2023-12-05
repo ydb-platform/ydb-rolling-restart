@@ -25,7 +25,7 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 		Long:  "Perform cleanup of management requests in cluster (long version)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Error("Failed to validate options", zap.Error(err))
+				logger.Errorf("Failed to validate options: %+v", err)
 				return err
 			}
 
@@ -40,7 +40,7 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 			tasks, err := c.MaintenanceTasks()
 			if err != nil {
 				logger.Errorf("Failed to list tasks: %v", err)
-				return err
+				return nil
 			}
 			for _, taskId := range tasks {
 				status, err := c.DropMaintenanceTask(taskId)

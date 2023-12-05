@@ -28,29 +28,38 @@ func NewRestartCommand(lf *zap.Logger) *cobra.Command {
 		Short: "Perform restart of YDB cluster",
 		Long:  "Perform restart of YDB cluster (long version)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Validate(opts.GRPC, opts.CMS, opts.Rolling); err != nil {
-				logger.Error("Failed to validate options", zap.Error(err))
+			// todo: any cleanup required?
+			var err error
+
+			if err = options.Validate(opts.GRPC, opts.CMS, opts.Rolling); err != nil {
+				logger.Errorf("Failed to validate options: %+v", err)
 				return err
 			}
 
-			c := cms.NewCMSClient(
-				logger,
+			client := cms.NewCMSClient(logger,
 				cms.NewConnectionFactory(
 					*opts.GRPC,
 					opts.CMS.Auth,
 					opts.CMS.User,
 				),
 			)
-			r := rolling.New(c, logger, opts.Rolling)
-
-			// todo: any cleanup?
-			// todo: logging here
+			r := rolling.New(client, logger, opts.Rolling)
 
 			if opts.Continue {
-				return r.RestartPrevious()
+				logger.Info("Continue previous rolling restart")
+				err = r.RestartPrevious()
+			} else {
+				logger.Info("Start rolling restart")
+				err = r.Restart()
 			}
 
-			return r.Restart()
+			if err != nil {
+				logger.Errorf("Failed to complete restart: %+v", err)
+			} else {
+				logger.Info("Restart completed successfully")
+			}
+
+			return nil
 		},
 	}
 

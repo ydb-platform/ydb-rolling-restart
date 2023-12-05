@@ -29,7 +29,7 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 		Long:  "Fetch and output list of nodes of YDB Cluster (long version)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Error("Failed to validate options", zap.Error(err))
+				logger.Errorf("Failed to validate options: %+v", err)
 				return err
 			}
 
@@ -44,7 +44,7 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 			nodes, err := c.Nodes()
 			if err != nil {
 				logger.Errorf("Failed to list nodes: %v", err)
-				return err
+				return nil
 			}
 
 			msg := util.Join(nodes, "\n",

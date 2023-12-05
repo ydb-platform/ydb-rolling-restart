@@ -26,7 +26,7 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 		Long:  "Fetch and output list of tenants of YDB Cluster (long version)",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Error("Failed to validate options", zap.Error(err))
+				logger.Errorf("Failed to validate options: %+v", err)
 				return err
 			}
 
@@ -41,7 +41,7 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 			tenants, err := c.Tenants()
 			if err != nil {
 				logger.Errorf("Failed to list tenants: %v", err)
-				return err
+				return nil
 			}
 
 			msg := util.Join(tenants, "\n", func(s string) string { return s })

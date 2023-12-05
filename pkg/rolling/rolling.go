@@ -106,7 +106,7 @@ func (r *Rolling) loop(task cms.MaintenanceTask) error {
 			}
 
 			r.logger.Info("Processing task action group states")
-			if completed := r.process(task); completed {
+			if completed := r.processActionGroupStates(task.GetActionGroupStates()); completed {
 				break
 			}
 		}
@@ -125,14 +125,21 @@ func (r *Rolling) loop(task cms.MaintenanceTask) error {
 	return nil
 }
 
-func (r *Rolling) process(task cms.MaintenanceTask) bool {
-	performed := util.FilterBy(task.GetActionGroupStates(),
+func (r *Rolling) processActionGroupStates(actions []*Ydb_Maintenance.ActionGroupStates) bool {
+	performed := util.FilterBy(actions,
 		func(gs *Ydb_Maintenance.ActionGroupStates) bool {
 			return gs.ActionStates[0].Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED
 		},
 	)
+
+	if len(performed) == 0 {
+		r.logger.Info("No ActionGroupStates can be performed")
+		return false
+	}
+
 	ids := make([]*Ydb_Maintenance.ActionUid, 0, len(performed))
 
+	r.logger.Infof("Perform next %d ActionGroupStates", len(performed))
 	for _, gs := range performed {
 		var (
 			as     = gs.ActionStates[0]
@@ -146,8 +153,10 @@ func (r *Rolling) process(task cms.MaintenanceTask) bool {
 			},
 		)
 
+		r.logger.Debugf("Drain node with id: %d", nodeId)
 		// todo: drain node
 
+		r.logger.Debugf("Restart node with id: %d", nodeId)
 		if err := r.service.RestartNode(nodes[0]); err != nil {
 			// todo: failed to restart node ?
 		}
@@ -163,7 +172,7 @@ func (r *Rolling) process(task cms.MaintenanceTask) bool {
 	r.logCompleteResult(result)
 
 	// completed when all actions marked as completed
-	return len(task.GetActionGroupStates()) == len(result.ActionStatuses)
+	return len(actions) == len(result.ActionStatuses)
 }
 
 func (r *Rolling) prepareState() error {

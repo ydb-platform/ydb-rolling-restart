@@ -37,6 +37,7 @@ func NewCMSClient(logger *zap.SugaredLogger, f *Factory) *CMSClient {
 func (c *CMSClient) Tenants() ([]string, error) {
 	result := Ydb_Cms.ListDatabasesResult{}
 	_, err := c.ExecuteCMSMethod(&result, func(ctx context.Context, cl Ydb_Cms_V1.CmsServiceClient) (operationResponse, error) {
+		c.logger.Debug("Invoke ListDatabases method")
 		return cl.ListDatabases(ctx, &Ydb_Cms.ListDatabasesRequest{OperationParams: c.f.OperationParams()})
 	})
 	if err != nil {
@@ -55,6 +56,7 @@ func (c *CMSClient) Nodes() ([]*Ydb_Maintenance.Node, error) {
 	result := Ydb_Maintenance.ListClusterNodesResult{}
 	_, err := c.ExecuteMaintenanceMethod(&result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke ListClusterNodes method")
 			return cl.ListClusterNodes(ctx, &Ydb_Maintenance.ListClusterNodesRequest{OperationParams: c.f.OperationParams()})
 		},
 	)
@@ -75,6 +77,7 @@ func (c *CMSClient) MaintenanceTasks() ([]string, error) {
 	result := Ydb_Maintenance.ListMaintenanceTasksResult{}
 	_, err := c.ExecuteMaintenanceMethod(&result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke ListMaintenanceTasks method")
 			return cl.ListMaintenanceTasks(ctx,
 				&Ydb_Maintenance.ListMaintenanceTasksRequest{
 					OperationParams: c.f.OperationParams(),
@@ -125,6 +128,7 @@ func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Ma
 	result := &Ydb_Maintenance.MaintenanceTaskResult{}
 	_, err := c.ExecuteMaintenanceMethod(result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke CreateMaintenanceTask method")
 			return cl.CreateMaintenanceTask(ctx, request)
 		},
 	)
@@ -139,6 +143,7 @@ func (c *CMSClient) RefreshMaintenanceTask(taskId string) (*Ydb_Maintenance.Main
 	result := Ydb_Maintenance.MaintenanceTaskResult{}
 	op, err := c.ExecuteMaintenanceMethod(&result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke RefreshMaintenanceTask method")
 			return cl.RefreshMaintenanceTask(ctx, &Ydb_Maintenance.RefreshMaintenanceTaskRequest{
 				OperationParams: c.f.OperationParams(),
 				TaskUid:         taskId,
@@ -157,6 +162,7 @@ func (c *CMSClient) RefreshMaintenanceTask(taskId string) (*Ydb_Maintenance.Main
 func (c *CMSClient) DropMaintenanceTask(taskId string) (string, error) {
 	op, err := c.ExecuteMaintenanceMethod(nil,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke DropMaintenanceTask method")
 			return cl.DropMaintenanceTask(ctx, &Ydb_Maintenance.DropMaintenanceTaskRequest{
 				OperationParams: c.f.OperationParams(),
 				TaskUid:         taskId,
@@ -174,6 +180,7 @@ func (c *CMSClient) CompleteAction(actionIds []*Ydb_Maintenance.ActionUid) (*Ydb
 	result := Ydb_Maintenance.ManageActionResult{}
 	op, err := c.ExecuteMaintenanceMethod(&result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke CompleteAction method")
 			return cl.CompleteAction(ctx, &Ydb_Maintenance.CompleteActionRequest{
 				OperationParams: c.f.OperationParams(),
 				ActionUids:      actionIds,
@@ -193,8 +200,7 @@ func (c *CMSClient) ExecuteMaintenanceMethod(
 ) (*Ydb_Operations.Operation, error) {
 	// todo:
 	// 	 1, error handling ??
-	//   2. retries
-	//   3. operation result check
+	//   2. retries ??
 
 	cc, err := c.f.Connection()
 	if err != nil {
@@ -205,9 +211,9 @@ func (c *CMSClient) ExecuteMaintenanceMethod(
 	defer cancel()
 
 	cl := Ydb_Maintenance_V1.NewMaintenanceServiceClient(cc)
-	c.logger.Debug("Invoke maintenance service method")
 	r, err := method(ctx, cl)
 	if err != nil {
+		c.logger.Debugf("Invocation error: %+v", err)
 		return nil, err
 	}
 	op := r.GetOperation()
@@ -241,9 +247,9 @@ func (c *CMSClient) ExecuteCMSMethod(
 	defer cancel()
 
 	cl := Ydb_Cms_V1.NewCmsServiceClient(cc)
-	c.logger.Debug("Invoke cms service method")
 	r, err := method(ctx, cl)
 	if err != nil {
+		c.logger.Debugf("Invocation error: %+v", err)
 		return nil, err
 	}
 	op := r.GetOperation()
@@ -279,5 +285,5 @@ func (c *CMSClient) logOperation(op *Ydb_Operations.Operation) {
 			))
 	}
 
-	c.logger.Debugf("Operation:\n%s", sb.String())
+	c.logger.Debugf("Invocation result:\n%s", sb.String())
 }

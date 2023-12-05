@@ -83,46 +83,47 @@ func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
 	)
 
 	var (
-		delay = defaultDelay
 		err   error
+		delay time.Duration
 	)
 
+	r.logger.Infof("Maintenance task processing loop started")
 	for {
+		delay = defaultDelay
+
 		if task != nil {
 			r.logTask(task)
-		}
 
-		// action can be performed
-		if task == nil || task.RetryAfter != nil {
-			// calculate delay relative to current time
-			delay = task.RetryAfter.AsTime().Sub(time.Now().UTC())
-			if defaultDelay < delay {
-				delay = defaultDelay
+			if task.RetryAfter != nil {
+				retryTime := task.RetryAfter.AsTime()
+				r.logger.Debugf("Task has retry after attribute: %s", retryTime.Format(time.DateTime))
+
+				if retryDelay := retryTime.Sub(time.Now().UTC()); defaultDelay < retryDelay {
+					delay = defaultDelay
+				}
 			}
-		} else {
-			// process action groups & use default delay
-			ok := r.next(task)
-			if !ok {
-				r.logger.Infof("Processing completed")
+
+			r.logger.Info("Processing task action group states")
+			if completed := r.process(task); completed {
 				break
 			}
-			delay = defaultDelay
 		}
 
-		r.logger.Infof("Wait for delay: %s", delay)
+		r.logger.Infof("Wait next %s delay", delay)
 		time.Sleep(delay)
 
-		r.logger.Infof("Refresh maintenance task")
+		r.logger.Infof("Refresh maintenance task with id: %s", task.TaskUid)
 		task, err = r.cms.RefreshMaintenanceTask(task.TaskUid)
 		if err != nil {
 			r.logger.Warnf("Failed to refresh maintenance task: %+v", err)
 		}
 	}
 
+	r.logger.Infof("Maintenance task processing loop completed")
 	return nil
 }
 
-func (r *Rolling) next(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
+func (r *Rolling) process(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
 	performed := util.FilterBy(task.ActionGroupStates,
 		func(gs *Ydb_Maintenance.ActionGroupStates) bool {
 			return gs.ActionStates[0].Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED
@@ -154,7 +155,8 @@ func (r *Rolling) next(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
 
 	result, err := r.cms.CompleteAction(ids)
 	if err != nil {
-		// todo: failed to complete action ?
+		r.logger.Warnf("Failed to complete action: %+v", err)
+		return false
 	}
 	r.logCompleteResult(result)
 

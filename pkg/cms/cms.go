@@ -123,12 +123,11 @@ func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Ma
 	}
 
 	result := &Ydb_Maintenance.MaintenanceTaskResult{}
-	op, err := c.ExecuteMaintenanceMethod(result,
+	_, err := c.ExecuteMaintenanceMethod(result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
 			return cl.CreateMaintenanceTask(ctx, request)
 		},
 	)
-	_ = op
 
 	if err != nil {
 		return result, err
@@ -220,6 +219,10 @@ func (c *CMSClient) ExecuteMaintenanceMethod(
 
 	if err := op.Result.UnmarshalTo(out); err != nil {
 		return op, err
+	}
+
+	if op.Status != Ydb.StatusIds_SUCCESS {
+		return op, fmt.Errorf("unsuccessful status code: %s", op.Status)
 	}
 
 	return op, nil

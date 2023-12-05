@@ -61,7 +61,7 @@ func (r *Rolling) Restart() error {
 		return fmt.Errorf("failed to create maintenance task: %+v", err)
 	}
 
-	r.logger.Infof("Maintenance task id: %s", task.TaskUid)
+	r.logger.Infof("Maintenance task id: %s", task.GetTaskUid())
 	return r.loop(task)
 }
 
@@ -70,21 +70,23 @@ func (r *Rolling) RestartPrevious() error {
 		return err
 	}
 
-	// todo:
-	//  1. find previous restart
-	//  2. run loop
+	result, err := r.cms.GetMaintenanceTask(RestartTaskUid)
+	if err != nil {
+		return fmt.Errorf("failed to get maintenance task with id: %s, err: %+v", RestartTaskUid, err)
+	}
 
-	return nil
+	return r.loop(result)
 }
 
-func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
+func (r *Rolling) loop(task cms.MaintenanceTask) error {
 	const (
 		defaultDelay = time.Second * 30
 	)
 
 	var (
-		err   error
-		delay time.Duration
+		err    error
+		delay  time.Duration
+		taskId = task.GetTaskUid()
 	)
 
 	r.logger.Infof("Maintenance task processing loop started")
@@ -94,8 +96,8 @@ func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
 		if task != nil {
 			r.logTask(task)
 
-			if task.RetryAfter != nil {
-				retryTime := task.RetryAfter.AsTime()
+			if task.GetRetryAfter() != nil {
+				retryTime := task.GetRetryAfter().AsTime()
 				r.logger.Debugf("Task has retry after attribute: %s", retryTime.Format(time.DateTime))
 
 				if retryDelay := retryTime.Sub(time.Now().UTC()); defaultDelay < retryDelay {
@@ -112,8 +114,8 @@ func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
 		r.logger.Infof("Wait next %s delay", delay)
 		time.Sleep(delay)
 
-		r.logger.Infof("Refresh maintenance task with id: %s", task.TaskUid)
-		task, err = r.cms.RefreshMaintenanceTask(task.TaskUid)
+		r.logger.Infof("Refresh maintenance task with id: %s", taskId)
+		task, err = r.cms.RefreshMaintenanceTask(taskId)
 		if err != nil {
 			r.logger.Warnf("Failed to refresh maintenance task: %+v", err)
 		}
@@ -123,8 +125,8 @@ func (r *Rolling) loop(task *Ydb_Maintenance.MaintenanceTaskResult) error {
 	return nil
 }
 
-func (r *Rolling) process(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
-	performed := util.FilterBy(task.ActionGroupStates,
+func (r *Rolling) process(task cms.MaintenanceTask) bool {
+	performed := util.FilterBy(task.GetActionGroupStates(),
 		func(gs *Ydb_Maintenance.ActionGroupStates) bool {
 			return gs.ActionStates[0].Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED
 		},
@@ -161,7 +163,7 @@ func (r *Rolling) process(task *Ydb_Maintenance.MaintenanceTaskResult) bool {
 	r.logCompleteResult(result)
 
 	// completed when all actions marked as completed
-	return len(task.ActionGroupStates) == len(result.ActionStatuses)
+	return len(task.GetActionGroupStates()) == len(result.ActionStatuses)
 }
 
 func (r *Rolling) prepareState() error {
@@ -201,19 +203,15 @@ func (r *Rolling) createService() (Service, error) {
 	return service, nil
 }
 
-func (r *Rolling) logTask(task *Ydb_Maintenance.MaintenanceTaskResult) {
-	if task == nil {
-		return
-	}
-
+func (r *Rolling) logTask(task cms.MaintenanceTask) {
 	sb := strings.Builder{}
-	sb.WriteString(fmt.Sprintf("Uid: %s\n", task.TaskUid))
+	sb.WriteString(fmt.Sprintf("Uid: %s\n", task.GetTaskUid()))
 
-	if task.RetryAfter != nil {
-		sb.WriteString(fmt.Sprintf("Retry after: %s\n", task.RetryAfter.AsTime().Format(time.DateTime)))
+	if task.GetRetryAfter() != nil {
+		sb.WriteString(fmt.Sprintf("Retry after: %s\n", task.GetRetryAfter().AsTime().Format(time.DateTime)))
 	}
 
-	for _, gs := range task.ActionGroupStates {
+	for _, gs := range task.GetActionGroupStates() {
 		as := gs.ActionStates[0]
 		sb.WriteString(fmt.Sprintf("  Lock on node %d ", as.Action.GetLockAction().Scope.GetNodeId()))
 		if as.Status == Ydb_Maintenance.ActionState_ACTION_STATUS_PERFORMED {

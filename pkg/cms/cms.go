@@ -94,7 +94,29 @@ func (c *CMSClient) MaintenanceTasks() ([]string, error) {
 	return result.TasksUids, nil
 }
 
-func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Maintenance.MaintenanceTaskResult, error) {
+func (c *CMSClient) GetMaintenanceTask(taskId string) (MaintenanceTask, error) {
+	result := Ydb_Maintenance.GetMaintenanceTaskResult{}
+	_, err := c.ExecuteMaintenanceMethod(&result,
+		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
+			c.logger.Debug("Invoke GetMaintenanceTask method")
+			return cl.GetMaintenanceTask(ctx, &Ydb_Maintenance.GetMaintenanceTaskRequest{
+				OperationParams: c.f.OperationParams(),
+				TaskUid:         taskId,
+			})
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &maintenanceTaskResult{
+		TaskUid:           taskId,
+		ActionGroupStates: result.ActionGroupStates,
+	}, nil
+}
+
+func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (MaintenanceTask, error) {
 	request := &Ydb_Maintenance.CreateMaintenanceTaskRequest{
 		OperationParams: c.f.OperationParams(),
 		TaskOptions: &Ydb_Maintenance.MaintenanceTaskOptions{
@@ -140,9 +162,9 @@ func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (*Ydb_Ma
 	return result, nil
 }
 
-func (c *CMSClient) RefreshMaintenanceTask(taskId string) (*Ydb_Maintenance.MaintenanceTaskResult, error) {
+func (c *CMSClient) RefreshMaintenanceTask(taskId string) (MaintenanceTask, error) {
 	result := Ydb_Maintenance.MaintenanceTaskResult{}
-	op, err := c.ExecuteMaintenanceMethod(&result,
+	_, err := c.ExecuteMaintenanceMethod(&result,
 		func(ctx context.Context, cl Ydb_Maintenance_V1.MaintenanceServiceClient) (operationResponse, error) {
 			c.logger.Debug("Invoke RefreshMaintenanceTask method")
 			return cl.RefreshMaintenanceTask(ctx, &Ydb_Maintenance.RefreshMaintenanceTaskRequest{
@@ -151,7 +173,6 @@ func (c *CMSClient) RefreshMaintenanceTask(taskId string) (*Ydb_Maintenance.Main
 			})
 		},
 	)
-	_ = op
 
 	if err != nil {
 		return nil, err

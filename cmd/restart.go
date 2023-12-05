@@ -66,5 +66,7 @@ func NewRestartCommand(lf *zap.Logger) *cobra.Command {
 	opts.CMS.DefineFlags(cmd.Flags())
 	opts.GRPC.DefineFlags(cmd.Flags())
 	opts.Rolling.DefineFlags(cmd.Flags())
+	cmd.Flags().BoolVarP(&opts.Continue, "continue", "", opts.Continue,
+		"Continue previous restart")
 	return cmd
 }

@@ -81,8 +81,7 @@ func (c *CMSClient) MaintenanceTasks() ([]string, error) {
 			return cl.ListMaintenanceTasks(ctx,
 				&Ydb_Maintenance.ListMaintenanceTasksRequest{
 					OperationParams: c.f.OperationParams(),
-					// todo: task created by CreateMaintenanceTask not found if user specified
-					//User:            util.Pointer(c.f.User()),
+					User:            util.Pointer(c.f.User()),
 				},
 			)
 		},

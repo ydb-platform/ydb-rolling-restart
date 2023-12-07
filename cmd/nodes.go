@@ -27,12 +27,10 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 		Use:   "nodes",
 		Short: "Fetch and output list of nodes of YDB Cluster",
 		Long:  "Fetch and output list of nodes of YDB Cluster (long version)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Errorf("Failed to validate options: %+v", err)
-				return err
-			}
-
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return options.Validate(opts.GRPC, opts.CMS)
+		},
+		Run: func(cmd *cobra.Command, args []string) {
 			c := cms.NewCMSClient(
 				logger,
 				cms.NewConnectionFactory(
@@ -44,7 +42,7 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 			nodes, err := c.Nodes()
 			if err != nil {
 				logger.Errorf("Failed to list nodes: %v", err)
-				return nil
+				return
 			}
 
 			msg := util.Join(nodes, "\n",
@@ -53,8 +51,6 @@ func NewNodesCommand(lf *zap.Logger) *cobra.Command {
 				},
 			)
 			logger.Infof("Nodes:\n%s", msg)
-
-			return nil
 		},
 	}
 

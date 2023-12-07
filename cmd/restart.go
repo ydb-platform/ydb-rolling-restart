@@ -9,6 +9,7 @@ import (
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/rolling"
 
 	_ "github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service/mock"
+	_ "github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service/ssh"
 )
 
 type RestartOptions struct {
@@ -29,14 +30,12 @@ func NewRestartCommand(lf *zap.Logger) *cobra.Command {
 		Use:   "restart",
 		Short: "Perform restart of YDB cluster",
 		Long:  "Perform restart of YDB cluster (long version)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return options.Validate(opts.GRPC, opts.CMS, opts.Rolling)
+		},
+		Run: func(cmd *cobra.Command, args []string) {
 			// todo: any cleanup required?
 			var err error
-
-			if err = options.Validate(opts.GRPC, opts.CMS, opts.Rolling); err != nil {
-				logger.Errorf("Failed to validate options: %+v", err)
-				return err
-			}
 
 			client := cms.NewCMSClient(logger,
 				cms.NewConnectionFactory(
@@ -60,8 +59,6 @@ func NewRestartCommand(lf *zap.Logger) *cobra.Command {
 			} else {
 				logger.Info("Restart completed successfully")
 			}
-
-			return nil
 		},
 	}
 

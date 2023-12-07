@@ -23,12 +23,10 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 		Use:   "clean",
 		Short: "Perform cleanup of management requests in cluster",
 		Long:  "Perform cleanup of management requests in cluster (long version)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Errorf("Failed to validate options: %+v", err)
-				return err
-			}
-
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return options.Validate(opts.GRPC, opts.CMS)
+		},
+		Run: func(cmd *cobra.Command, args []string) {
 			c := cms.NewCMSClient(
 				logger,
 				cms.NewConnectionFactory(
@@ -40,7 +38,7 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 			tasks, err := c.MaintenanceTasks()
 			if err != nil {
 				logger.Errorf("Failed to list tasks: %v", err)
-				return nil
+				return
 			}
 			for _, taskId := range tasks {
 				status, err := c.DropMaintenanceTask(taskId)
@@ -50,7 +48,6 @@ func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 				}
 				logger.Infof("Drop task with id: %s status is %s", tasks, status)
 			}
-			return nil
 		},
 	}
 

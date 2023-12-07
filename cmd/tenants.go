@@ -24,12 +24,10 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 		Use:   "tenants",
 		Short: "Fetch and output list of tenants of YDB Cluster",
 		Long:  "Fetch and output list of tenants of YDB Cluster (long version)",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := options.Validate(opts.GRPC, opts.CMS); err != nil {
-				logger.Errorf("Failed to validate options: %+v", err)
-				return err
-			}
-
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return options.Validate(opts.GRPC, opts.CMS)
+		},
+		Run: func(_ *cobra.Command, _ []string) {
 			c := cms.NewCMSClient(
 				logger,
 				cms.NewConnectionFactory(
@@ -41,13 +39,11 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 			tenants, err := c.Tenants()
 			if err != nil {
 				logger.Errorf("Failed to list tenants: %v", err)
-				return nil
+				return
 			}
 
 			msg := util.Join(tenants, "\n", func(s string) string { return s })
 			logger.Infof("Tenants:\n%s", msg)
-
-			return nil
 		},
 	}
 	opts.CMS.DefineFlags(cmd.Flags())

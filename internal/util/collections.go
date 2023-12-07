@@ -24,6 +24,17 @@ func Contains[T comparable](elems []T, elem T) bool {
 	return false
 }
 
+func ToMap[T any, K comparable](items []T, keyF func(T) K) map[K]T {
+	m := make(map[K]T, len(items))
+
+	for _, item := range items {
+		k := keyF(item)
+		m[k] = item
+	}
+
+	return m
+}
+
 func Keys[T any, K comparable](m map[K]T) []K {
 	keys := make([]K, 0, len(m))
 
@@ -32,6 +43,16 @@ func Keys[T any, K comparable](m map[K]T) []K {
 	}
 
 	return keys
+}
+
+func Values[T any, K comparable](m map[K]T) []T {
+	values := make([]T, 0, len(m))
+
+	for _, v := range m {
+		values = append(values, v)
+	}
+
+	return values
 }
 
 func Join[T any](items []T, sep string, captionF func(T) string) string {

@@ -16,10 +16,12 @@ type Rolling struct {
 	logger *zap.SugaredLogger
 	cms    *cms.CMSClient
 	opts   *Options
+	state  *state
+}
 
-	// internal state available during restart
+type state struct {
 	service Service
-	nodes   []*Ydb_Maintenance.Node
+	nodes   map[uint32]*Ydb_Maintenance.Node
 	tenants []string
 }
 
@@ -37,15 +39,17 @@ func New(cms *cms.CMSClient, logger *zap.SugaredLogger, opts *Options) *Rolling 
 }
 
 func (r *Rolling) Restart() error {
-	if err := r.prepareState(); err != nil {
+	state, err := r.prepareState()
+	if err != nil {
 		return err
 	}
+	r.state = state
 
-	nodesToRestart := r.service.Filter(
+	nodesToRestart := r.state.service.Filter(
 		FilterNodeParams{
 			Service:         r.opts.Service,
-			AllTenants:      r.tenants,
-			AllNodes:        r.nodes,
+			AllTenants:      r.state.tenants,
+			AllNodes:        util.Values(r.state.nodes),
 			SelectedTenants: r.opts.Tenants,
 			SelectedNodeIds: r.opts.Nodes,
 		},
@@ -66,9 +70,11 @@ func (r *Rolling) Restart() error {
 }
 
 func (r *Rolling) RestartPrevious() error {
-	if err := r.prepareState(); err != nil {
+	state, err := r.prepareState()
+	if err != nil {
 		return err
 	}
+	r.state = state
 
 	result, err := r.cms.GetMaintenanceTask(RestartTaskUid)
 	if err != nil {
@@ -142,22 +148,16 @@ func (r *Rolling) processActionGroupStates(actions []*Ydb_Maintenance.ActionGrou
 	r.logger.Infof("Perform next %d ActionGroupStates", len(performed))
 	for _, gs := range performed {
 		var (
-			as     = gs.ActionStates[0]
-			lock   = as.Action.GetLockAction()
-			nodeId = lock.Scope.GetNodeId()
+			as   = gs.ActionStates[0]
+			lock = as.Action.GetLockAction()
+			node = r.state.nodes[lock.Scope.GetNodeId()]
 		)
 
-		nodes := util.FilterBy(r.nodes,
-			func(node *Ydb_Maintenance.Node) bool {
-				return node.NodeId == nodeId
-			},
-		)
-
-		r.logger.Debugf("Drain node with id: %d", nodeId)
+		r.logger.Debugf("Drain node with id: %d", node.NodeId)
 		// todo: drain node
 
-		r.logger.Debugf("Restart node with id: %d", nodeId)
-		if err := r.service.RestartNode(nodes[0]); err != nil {
+		r.logger.Debugf("Restart node with id: %d", node.NodeId)
+		if err := r.state.service.RestartNode(node); err != nil {
 			// todo: failed to restart node ?
 		}
 
@@ -175,27 +175,27 @@ func (r *Rolling) processActionGroupStates(actions []*Ydb_Maintenance.ActionGrou
 	return len(actions) == len(result.ActionStatuses)
 }
 
-func (r *Rolling) prepareState() error {
+func (r *Rolling) prepareState() (*state, error) {
 	service, err := r.createService()
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to create restart service: %+v", err)
 	}
 
 	tenants, err := r.cms.Tenants()
 	if err != nil {
-		return fmt.Errorf("failed to list avaialble tenants: %+v", err)
+		return nil, fmt.Errorf("failed to list avaialble tenants: %+v", err)
 	}
 
 	nodes, err := r.cms.Nodes()
 	if err != nil {
-		return fmt.Errorf("failed to list avaialble nodes: %+v", err)
+		return nil, fmt.Errorf("failed to list avaialble nodes: %+v", err)
 	}
 
-	r.service = service
-	r.nodes = nodes
-	r.tenants = tenants
-
-	return nil
+	return &state{
+		service: service,
+		tenants: tenants,
+		nodes:   util.ToMap(nodes, func(n *Ydb_Maintenance.Node) uint32 { return n.NodeId }),
+	}, nil
 }
 
 func (r *Rolling) createService() (Service, error) {

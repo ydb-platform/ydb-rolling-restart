@@ -9,7 +9,7 @@ import (
 type MaintenanceTaskParams struct {
 	TaskUid          string
 	AvailAbilityMode Ydb_Maintenance.AvailabilityMode
-	Duration         *durationpb.Duration // todo: duration (?)
+	Duration         *durationpb.Duration
 	Nodes            []*Ydb_Maintenance.Node
 }
 

@@ -56,8 +56,8 @@ func (r *Rolling) Restart() error {
 	)
 	taskParams := cms.MaintenanceTaskParams{
 		TaskUid:          RestartTaskUid,
-		AvailAbilityMode: r.opts.AvailabilityMode(),
-		Duration:         r.opts.RestartDuration(),
+		AvailAbilityMode: r.opts.GetAvailabilityMode(),
+		Duration:         r.opts.GetRestartDuration(),
 		Nodes:            nodesToRestart,
 	}
 	task, err := r.cms.CreateMaintenanceTask(taskParams)

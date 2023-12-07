@@ -7,6 +7,8 @@ import (
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/options"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/rolling"
+
+	_ "github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service/mock"
 )
 
 type RestartOptions struct {

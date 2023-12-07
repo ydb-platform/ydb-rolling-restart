@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
+	"github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service"
 )
 
 var (
@@ -27,7 +28,7 @@ type Options struct {
 
 func (o *Options) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.Service, "service", "", o.Service,
-		fmt.Sprintf("Service type. Available choices: %s", util.JoinStrings(util.Keys(ServiceOptionsMap), ", ")))
+		fmt.Sprintf("Service type. Available choices: %s", util.JoinStrings(util.Keys(service.OptionsMap), ", ")))
 
 	fs.StringVarP(&o.AvailabilityMode, "availability-mode", "", AvailabilityModes[0],
 		fmt.Sprintf("Availability mode. Available choices: %s", util.JoinStrings(AvailabilityModes, ", ")))
@@ -44,7 +45,7 @@ func (o *Options) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringArrayVarP(&o.Nodes, "nodes", "", o.Nodes,
 		"Restart only specified nodes")
 
-	for _, opts := range ServiceOptionsMap {
+	for _, opts := range service.OptionsMap {
 		if opts != nil {
 			opts.DefineFlags(fs)
 		}
@@ -52,7 +53,7 @@ func (o *Options) DefineFlags(fs *pflag.FlagSet) {
 }
 
 func (o *Options) Validate() error {
-	opts, exists := ServiceOptionsMap[o.Service]
+	opts, exists := service.OptionsMap[o.Service]
 	if !exists {
 		return fmt.Errorf("specified not supported service: %s", o.Service)
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
+	service2 "github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service"
 )
 
 type Rolling struct {
@@ -20,7 +21,7 @@ type Rolling struct {
 }
 
 type state struct {
-	service Service
+	service service2.Interface
 	nodes   map[uint32]*Ydb_Maintenance.Node
 	tenants []string
 }
@@ -46,7 +47,7 @@ func (r *Rolling) Restart() error {
 	r.state = state
 
 	nodesToRestart := r.state.service.Filter(
-		FilterNodeParams{
+		service2.FilterNodeParams{
 			Service:         r.opts.Service,
 			AllTenants:      r.state.tenants,
 			AllNodes:        util.Values(r.state.nodes),
@@ -198,9 +199,9 @@ func (r *Rolling) prepareState() (*state, error) {
 	}, nil
 }
 
-func (r *Rolling) createService() (Service, error) {
-	factory := ServiceFactoryMap[r.opts.Service]
-	service, err := factory(ServiceOptionsMap[r.opts.Service])
+func (r *Rolling) createService() (service2.Interface, error) {
+	factory := service2.FactoryMap[r.opts.Service]
+	service, err := factory(service2.OptionsMap[r.opts.Service])
 	if err != nil {
 		return nil, err
 	}

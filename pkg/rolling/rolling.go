@@ -46,13 +46,14 @@ func (r *Rolling) Restart() error {
 	}
 	r.state = state
 
+	nodeIds, _ := r.opts.GetNodeIds()
 	nodesToRestart := r.state.service.Filter(
 		service2.FilterNodeParams{
 			Service:         r.opts.Service,
 			AllTenants:      r.state.tenants,
 			AllNodes:        util.Values(r.state.nodes),
 			SelectedTenants: r.opts.Tenants,
-			SelectedNodeIds: r.opts.Nodes,
+			SelectedNodeIds: nodeIds,
 		},
 	)
 	taskParams := cms.MaintenanceTaskParams{

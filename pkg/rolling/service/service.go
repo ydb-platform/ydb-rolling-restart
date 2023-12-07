@@ -23,5 +23,5 @@ type FilterNodeParams struct {
 	AllTenants      []string
 	AllNodes        []*Ydb_Maintenance.Node
 	SelectedTenants []string
-	SelectedNodeIds []string
+	SelectedNodeIds []uint32
 }

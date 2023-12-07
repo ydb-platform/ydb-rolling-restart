@@ -2,6 +2,7 @@ package rolling
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -70,6 +71,10 @@ func (o *Options) Validate() error {
 		return fmt.Errorf("specified invalid restart retry number: %d. Must be positive", o.RestartRetryNumber)
 	}
 
+	if _, err := o.GetNodeIds(); err != nil {
+		return err
+	}
+
 	if opts != nil {
 		return opts.Validate()
 	}
@@ -85,4 +90,21 @@ func (o *Options) GetAvailabilityMode() Ydb_Maintenance.AvailabilityMode {
 
 func (o *Options) GetRestartDuration() *durationpb.Duration {
 	return durationpb.New(time.Second * time.Duration(o.RestartDuration) * time.Duration(o.RestartRetryNumber))
+}
+
+func (o *Options) GetNodeIds() ([]uint32, error) {
+	ids := make([]uint32, 0, len(o.Nodes))
+
+	for _, nodeId := range o.Nodes {
+		id, err := strconv.Atoi(nodeId)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse node id: %+v", err)
+		}
+		if id < 0 {
+			return nil, fmt.Errorf("invalid node id specified: %d, must be positive", id)
+		}
+		ids = append(ids, uint32(id))
+	}
+
+	return ids, nil
 }

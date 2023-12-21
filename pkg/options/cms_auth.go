@@ -119,7 +119,7 @@ func (at *CMSAuthIAM) DefineFlags(fs *pflag.FlagSet) {
 func (at *CMSAuthIAM) Validate() error {
 	if len(at.KeyFilename) != 0 {
 		if _, err := os.Stat(at.KeyFilename); errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("auth iam key file %s not exists: %v", err)
+			return fmt.Errorf("auth iam key file %s not exists: %v", at.KeyFilename, err)
 		}
 	}
 	if len(at.Endpoint) == 0 {

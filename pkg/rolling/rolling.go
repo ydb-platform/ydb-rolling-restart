@@ -160,7 +160,7 @@ func (r *Rolling) processActionGroupStates(actions []*Ydb_Maintenance.ActionGrou
 
 		r.logger.Debugf("Restart node with id: %d", node.NodeId)
 		if err := r.state.service.RestartNode(node); err != nil {
-			// todo: failed to restart node ?
+			r.logger.Warnf("Failed to restart node with id: %d", node.NodeId)
 		}
 
 		ids = append(ids, as.ActionUid)

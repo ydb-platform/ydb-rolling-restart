@@ -14,8 +14,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	_ "github.com/ydb-platform/ydb-go-genproto/draft/Ydb_Maintenance_V1"
-
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/options"
 )
 

@@ -7,12 +7,11 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/ydb-platform/ydb-rolling-restart/cmd"
 	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
-
-	"go.uber.org/zap"
 )
 
 func createLogger(level string) (zap.AtomicLevel, *zap.Logger) {

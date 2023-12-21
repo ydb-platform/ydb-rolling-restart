@@ -14,9 +14,7 @@ import (
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/rolling/service"
 )
 
-var (
-	AvailabilityModes = []string{"strong", "weak", "force"}
-)
+var AvailabilityModes = []string{"strong", "weak", "force"}
 
 type Options struct {
 	AvailabilityMode   string

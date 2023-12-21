@@ -14,9 +14,7 @@ const (
 	ServiceTypeDynamic = "dynamic"
 )
 
-var (
-	ServiceTypes = []string{ServiceTypeStorage, ServiceTypeDynamic}
-)
+var ServiceTypes = []string{ServiceTypeStorage, ServiceTypeDynamic}
 
 func init() {
 	service.OptionsMap[name] = &opts{}

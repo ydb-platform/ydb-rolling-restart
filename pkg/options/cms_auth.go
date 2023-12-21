@@ -55,12 +55,14 @@ func (ae *CMSAuthEnv) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&ae.Name, "cms-auth-env-name", "", DefaultCMSAuthEnvVar,
 		"CMS Authentication environment variable name (type: env)")
 }
+
 func (ae *CMSAuthEnv) Validate() error {
 	if len(ae.Name) == 0 {
 		return fmt.Errorf("auth env variable name empty")
 	}
 	return nil
 }
+
 func (ae *CMSAuthEnv) Token() (AuthToken, error) {
 	if ae.t.Secret != "" {
 		return ae.t, nil
@@ -81,6 +83,7 @@ func (af *CMSAuthFile) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&af.Filename, "cms-auth-file-token", "", "",
 		"CMS Authentication file token name (type: file)")
 }
+
 func (af *CMSAuthFile) Validate() error {
 	if len(af.Filename) != 0 {
 		if _, err := os.Stat(af.Filename); errors.Is(err, os.ErrNotExist) {
@@ -89,6 +92,7 @@ func (af *CMSAuthFile) Validate() error {
 	}
 	return nil
 }
+
 func (af *CMSAuthFile) Token() (AuthToken, error) {
 	if af.t.Secret != "" {
 		return af.t, nil
@@ -111,6 +115,7 @@ func (at *CMSAuthIAM) DefineFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&at.Endpoint, "cms-auth-iam-endpoint", "", DefaultCMSAuthIAMEndpoint,
 		"CMS Authentication iam endpoint (type: iam)")
 }
+
 func (at *CMSAuthIAM) Validate() error {
 	if len(at.KeyFilename) != 0 {
 		if _, err := os.Stat(at.KeyFilename); errors.Is(err, os.ErrNotExist) {
@@ -122,6 +127,7 @@ func (at *CMSAuthIAM) Validate() error {
 	}
 	return nil
 }
+
 func (at *CMSAuthIAM) Token() (AuthToken, error) {
 	return AuthToken{}, nil
 }

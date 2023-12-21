@@ -104,7 +104,6 @@ func (c *CMSClient) GetMaintenanceTask(taskId string) (MaintenanceTask, error) {
 			})
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +153,6 @@ func (c *CMSClient) CreateMaintenanceTask(params MaintenanceTaskParams) (Mainten
 			return cl.CreateMaintenanceTask(ctx, request)
 		},
 	)
-
 	if err != nil {
 		return result, err
 	}
@@ -172,7 +170,6 @@ func (c *CMSClient) RefreshMaintenanceTask(taskId string) (MaintenanceTask, erro
 			})
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}

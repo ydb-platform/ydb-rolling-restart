@@ -11,12 +11,14 @@ var (
 	FactoryMap = map[string]Factory{}
 )
 
-type Factory func(o options.Options) (Interface, error)
-type Interface interface {
-	Prepare() error
-	Filter(spec FilterNodeParams) []*Ydb_Maintenance.Node
-	RestartNode(node *Ydb_Maintenance.Node) error
-}
+type (
+	Factory   func(o options.Options) (Interface, error)
+	Interface interface {
+		Prepare() error
+		Filter(spec FilterNodeParams) []*Ydb_Maintenance.Node
+		RestartNode(node *Ydb_Maintenance.Node) error
+	}
+)
 
 type FilterNodeParams struct {
 	Service         string

@@ -4,30 +4,29 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
-	"github.com/ydb-platform/ydb-rolling-restart/internal/util"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/cms"
 	"github.com/ydb-platform/ydb-rolling-restart/pkg/options"
 )
 
-type TenantsOptions struct {
+type CleanOptions struct {
 	CMS  *options.CMS
 	GRPC *options.GRPC
 }
 
-func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
+func NewCleanCommand(lf *zap.Logger) *cobra.Command {
 	logger := lf.Sugar()
-	opts := TenantsOptions{
+	opts := CleanOptions{
 		CMS:  &options.CMS{},
 		GRPC: &options.GRPC{},
 	}
 	cmd := &cobra.Command{
-		Use:   "tenants",
-		Short: "Fetch and output list of tenants of YDB Cluster",
-		Long:  "Fetch and output list of tenants of YDB Cluster (long version)",
+		Use:   "clean",
+		Short: "Perform cleanup of management requests in cluster",
+		Long:  "Perform cleanup of management requests in cluster (long version)",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return options.Validate(opts.GRPC, opts.CMS)
 		},
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			c := cms.NewCMSClient(
 				logger,
 				cms.NewConnectionFactory(
@@ -36,18 +35,23 @@ func NewTenantsCommand(lf *zap.Logger) *cobra.Command {
 					opts.CMS.User,
 				),
 			)
-			tenants, err := c.Tenants()
+			tasks, err := c.MaintenanceTasks()
 			if err != nil {
-				logger.Errorf("Failed to list tenants: %v", err)
+				logger.Errorf("Failed to list tasks: %v", err)
 				return
 			}
-
-			msg := util.Join(tenants, "\n", func(s string) string { return s })
-			logger.Infof("Tenants:\n%s", msg)
+			for _, taskId := range tasks {
+				status, err := c.DropMaintenanceTask(taskId)
+				if err != nil {
+					logger.Errorf("Failed to drop maintenance task: %v", err)
+					continue
+				}
+				logger.Infof("Drop task with id: %s status is %s", tasks, status)
+			}
 		},
 	}
+
 	opts.CMS.DefineFlags(cmd.Flags())
 	opts.GRPC.DefineFlags(cmd.Flags())
-
 	return cmd
 }

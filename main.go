@@ -57,6 +57,6 @@ func main() {
 	)
 
 	if err := root.Execute(); err != nil {
-		os.Exit(1)
+		logger.Fatal("failed to execute restart", zap.Error(err))
 	}
 }
